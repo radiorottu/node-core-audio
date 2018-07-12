@@ -35,6 +35,11 @@ var exists = function(a) { return typeof(a) == "undefined" ? false : true; };	//
 function AudioEngine( options ) {
 	var audioEngineImpl = require( __dirname + "/build/Release/NodeCoreAudio" );
 
+	/*New fl 2014-10-30*/
+	this.isStopped = false;
+	
+	this.randId = Math.floor((Math.random() * 100) + 1);
+	
 	var defaultOptions = {
 		inputChannels: 1,
 		outputChannels: 2,
@@ -105,22 +110,28 @@ function AudioEngine( options ) {
 
 	this.processAudio = this.getProcessAudio();
 
-	setInterval( function() {
-		if (_this.audioEngine.isBufferEmpty()) {
-			// Try to process audio
-			var input = _this.audioEngine.read();
+	var intervalId = setInterval( function() {
+		/*New fl 2014-10-30*/
+		if (_this.isStopped != true){
+			if (_this.audioEngine.isBufferEmpty()) {
+				// Try to process audio
+				var input = _this.audioEngine.read();
 
-			var outputBuffer = _this.processAudio( input );
+				var outputBuffer = _this.processAudio( input );
 
-			if( validateOutputBufferStructure(outputBuffer) )
-				_this.audioEngine.write( outputBuffer );
-			
-			// Call our UI updates now that all the DSP work has been done
-			for( var iUpdate=0; iUpdate < _this.uiUpdateCallbacks.length; ++iUpdate ) {
-				_this.uiUpdateCallbacks[iUpdate]();
+				if( validateOutputBufferStructure(outputBuffer) )
+					_this.audioEngine.write( outputBuffer );
+				
+				// Call our UI updates now that all the DSP work has been done
+				for( var iUpdate=0; iUpdate < _this.uiUpdateCallbacks.length; ++iUpdate ) {
+					_this.uiUpdateCallbacks[iUpdate]();
+				}
 			}
+		}else{
+			/*New fl 2015-08-27*/
+			clearInterval(intervalId);
 		}
-	}, 1 );
+	}, 1);
 } // end AudioEngine()
 
 
@@ -128,19 +139,16 @@ function AudioEngine( options ) {
 // Returns our main audio processing function
 AudioEngine.prototype.getProcessAudio = function() {
 	var _this = this;
-
 	var options = this.audioEngine.getOptions(),
 		numChannels = options.inputChannels,
 		fftBuffer = this.fftBuffer;
 	
 	var processAudio = function( inputBuffer ) {	
-
 		// If we don't have any processing callbacks, just get out
 		if( _this.processingCallbacks.length == 0 )
 			return inputBuffer;
 			
 		var processBuffer = inputBuffer;
-			
 		//if( !_this.options.interleaved )
 		//	deInterleave( inputBuffer, processBuffer, _this.options.framesPerBuffer, numChannels );
 
@@ -191,6 +199,11 @@ AudioEngine.prototype.addAudioCallback = function( callback ) {
 	this.processingCallbacks.push( callback );
 } // end AudioEngine.addAudioCallback()
 
+/*Neu fl 2014-10-30*/
+AudioEngine.prototype.stopListening = function (){
+	console.log("Core stopListening");
+	this.isStopped = true;
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Add a UI update callback
